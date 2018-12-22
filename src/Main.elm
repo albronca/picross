@@ -6,6 +6,7 @@ import Element exposing (..)
 import Element.Background as Background
 import Element.Events as Events
 import Html exposing (Html)
+import List.Extra
 import Matrix exposing (Matrix)
 
 
@@ -78,6 +79,8 @@ gameBoard model =
             , centerY
             , spacing 4
             , paddingXY 32 0
+            , onLeft <| rowHints model
+            , above <| columnHints model
             ]
 
 
@@ -106,6 +109,38 @@ cellColor isOn =
         rgb255 200 200 200
 
 
+rowHints : Model -> Element Msg
+rowHints model =
+    model
+        |> getRows
+        |> List.map List.Extra.group
+        |> List.map (List.filter Tuple.first)
+        |> List.map (List.map Tuple.second)
+        |> List.map (List.map List.length)
+        |> List.map (List.map ((+) 1))
+        |> List.map (List.map String.fromInt)
+        |> List.map (List.map text)
+        |> List.map (List.map <| el [ alignRight ])
+        |> List.map (row [ height <| px 100, spacing 8 ])
+        |> column [ spacing 4 ]
+
+
+columnHints : Model -> Element Msg
+columnHints model =
+    model
+        |> getColumns
+        |> List.map List.Extra.group
+        |> List.map (List.filter Tuple.first)
+        |> List.map (List.map Tuple.second)
+        |> List.map (List.map List.length)
+        |> List.map (List.map ((+) 1))
+        |> List.map (List.map String.fromInt)
+        |> List.map (List.map text)
+        |> List.map (List.map <| el [ centerX ])
+        |> List.map (column [ width <| px 100, spacing 8 ])
+        |> row [ spacing 4, centerX ]
+
+
 
 -- UTILITY
 
@@ -114,5 +149,13 @@ getRows : Matrix a -> List (List a)
 getRows matrix =
     List.range 0 (Matrix.height matrix - 1)
         |> List.map (\y -> Matrix.getRow y matrix)
+        |> List.map (Result.withDefault Array.empty)
+        |> List.map Array.toList
+
+
+getColumns : Matrix a -> List (List a)
+getColumns matrix =
+    List.range 0 (Matrix.width matrix - 1)
+        |> List.map (\x -> Matrix.getColumn x matrix)
         |> List.map (Result.withDefault Array.empty)
         |> List.map Array.toList
