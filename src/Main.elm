@@ -2,10 +2,12 @@ module Main exposing (main)
 
 import Array exposing (Array)
 import Browser
-import Browser.Events exposing (onKeyDown, onKeyUp)
+import Browser.Events exposing (onKeyDown, onKeyUp, onResize)
 import Element exposing (..)
 import Element.Background as Background
 import Element.Events as Events
+import Element.Font as Font
+import Element.Input as Input
 import Html exposing (Html)
 import Json.Decode as Decode
 import List.Extra
@@ -13,7 +15,7 @@ import Matrix exposing (Matrix)
 import Random
 
 
-main : Program () Model Msg
+main : Program WindowSize Model Msg
 main =
     Browser.element
         { init = init
@@ -32,11 +34,19 @@ type alias Model =
     , solution : Matrix Bool
     , shiftPressed : Bool
     , gameState : GameState
+    , windowSize : WindowSize
+    }
+
+
+type alias WindowSize =
+    { width : Int
+    , height : Int
     }
 
 
 type GameState
-    = Playing
+    = Setup
+    | Playing
     | Won
 
 
@@ -46,20 +56,19 @@ type CellState
     | Flagged
 
 
-initialModel : Model
-initialModel =
+initialModel : WindowSize -> Model
+initialModel windowSize =
     { board = Matrix.repeat 5 5 Empty
     , solution = Matrix.repeat 5 5 False
     , shiftPressed = False
-    , gameState = Playing
+    , gameState = Setup
+    , windowSize = windowSize
     }
 
 
-init : () -> ( Model, Cmd Msg )
-init flags =
-    ( initialModel
-    , Random.generate SeedBoard (coordListGenerator initialModel.solution)
-    )
+init : WindowSize -> ( Model, Cmd Msg )
+init windowSize =
+    ( initialModel windowSize, Cmd.none )
 
 
 
@@ -68,9 +77,11 @@ init flags =
 
 type Msg
     = ToggleCell Int Int
-    | SeedBoard (List ( Int, Int ))
+    | SolutionGenerated (List ( Int, Int ))
     | KeyDown String
     | KeyUp String
+    | NewGame
+    | WindowResize Int Int
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -98,9 +109,10 @@ update msg model =
             , Cmd.none
             )
 
-        SeedBoard coordList ->
+        SolutionGenerated coordList ->
             ( { model
                 | solution = toggleCells coordList model.solution
+                , gameState = Playing
               }
             , Cmd.none
             )
@@ -128,6 +140,14 @@ update msg model =
 
                 _ ->
                     ( model, Cmd.none )
+
+        NewGame ->
+            ( { model | board = Matrix.repeat 5 5 Empty }
+            , Random.generate SolutionGenerated (coordListGenerator model.solution)
+            )
+
+        WindowResize width height ->
+            ( { model | windowSize = { width = width, height = height } }, Cmd.none )
 
 
 getGameState : Model -> GameState
@@ -263,30 +283,61 @@ gameView model =
         |> column
             [ centerX
             , centerY
+            , width <| px 500
+            , height <| px 500
             , spacing 4
-            , paddingXY 32 0
+            , Font.size 12
             , onLeft <| rowHints model.solution
             , above <| columnHints model.solution
             , inFront <|
-                if model.gameState == Won then
-                    el [ Background.color (rgb 255 255 255) ] (text "wow good job")
-
-                else
-                    none
+                menu model
             ]
+
+
+menu : Model -> Element Msg
+menu model =
+    case model.gameState of
+        Playing ->
+            none
+
+        _ ->
+            column
+                [ centerX
+                , centerY
+                , width <| px 500
+                , height <| px 500
+                , Background.color (rgba 255 255 255 0.8)
+                , Font.size 24
+                ]
+                [ el
+                    [ centerX, centerY ]
+                    (text
+                        (if model.gameState == Setup then
+                            "picross"
+
+                         else
+                            "wow good job"
+                        )
+                    )
+                , Input.button [ centerX, centerY ]
+                    { onPress = Just NewGame
+                    , label = text "New Game"
+                    }
+                ]
 
 
 gameBoardRow : Int -> List CellState -> Element Msg
 gameBoardRow y =
-    List.indexedMap (gameBoardCell y) >> row [ centerX, spacing 4 ]
+    List.indexedMap (gameBoardCell y)
+        >> row [ width fill, height fill, centerX, spacing 4 ]
 
 
 gameBoardCell : Int -> Int -> CellState -> Element Msg
 gameBoardCell y x cellState =
     el
         [ Background.color <| cellColor cellState
-        , width <| px 100
-        , height <| px 100
+        , width fill
+        , height fill
         , Events.onClick <| ToggleCell x y
         ]
         none
@@ -317,8 +368,8 @@ rowHints solution =
         |> List.map (List.map String.fromInt)
         |> List.map (List.map text)
         |> List.map (List.map <| el [ alignRight ])
-        |> List.map (row [ height <| px 100, spacing 8 ])
-        |> column [ spacing 4 ]
+        |> List.map (row [ height fill, spacing 8 ])
+        |> column [ height <| px 500, spacing 4, paddingXY 20 0 ]
 
 
 columnHints : Matrix Bool -> Element Msg
@@ -333,8 +384,8 @@ columnHints solution =
         |> List.map (List.map String.fromInt)
         |> List.map (List.map text)
         |> List.map (List.map <| el [ centerX ])
-        |> List.map (column [ width <| px 100, spacing 8 ])
-        |> row [ spacing 4, centerX ]
+        |> List.map (column [ width fill, spacing 8 ])
+        |> row [ width <| px 500, spacing 4, centerX, paddingXY 0 20 ]
 
 
 
