@@ -1,21 +1,23 @@
 module Main exposing (main)
 
 import Array exposing (Array)
-import Browser exposing (sandbox)
+import Browser
 import Element exposing (..)
 import Element.Background as Background
 import Element.Events as Events
 import Html exposing (Html)
 import List.Extra
 import Matrix exposing (Matrix)
+import Random
 
 
 main : Program () Model Msg
 main =
-    sandbox
+    Browser.element
         { init = init
         , update = update
         , view = view
+        , subscriptions = subscriptions
         }
 
 
@@ -27,9 +29,16 @@ type alias Model =
     Matrix Bool
 
 
-init : Model
-init =
+initialModel : Model
+initialModel =
     Matrix.repeat 5 5 False
+
+
+init : () -> ( Model, Cmd Msg )
+init flags =
+    ( initialModel
+    , Random.generate SeedBoard (coordListGenerator initialModel)
+    )
 
 
 
@@ -38,17 +47,27 @@ init =
 
 type Msg
     = ToggleCell Int Int
+    | SeedBoard (List ( Int, Int ))
 
 
-update : Msg -> Model -> Model
+update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         ToggleCell x y ->
-            toggleCell x y model
+            ( toggleCell ( x, y ) model, Cmd.none )
+
+        SeedBoard coordList ->
+            ( toggleCells coordList model, Cmd.none )
 
 
-toggleCell : Int -> Int -> Model -> Model
-toggleCell toggleX toggleY =
+toggleCells : List ( Int, Int ) -> Model -> Model
+toggleCells coordList board =
+    coordList
+        |> List.foldl toggleCell board
+
+
+toggleCell : ( Int, Int ) -> Model -> Model
+toggleCell ( toggleX, toggleY ) =
     Matrix.indexedMap
         (\cellX cellY isOn ->
             if cellX == toggleX && cellY == toggleY then
@@ -57,6 +76,37 @@ toggleCell toggleX toggleY =
             else
                 isOn
         )
+
+
+coordListGenerator : Matrix a -> Random.Generator (List ( Int, Int ))
+coordListGenerator matrix =
+    let
+        ( width, height ) =
+            ( Matrix.width matrix, Matrix.height matrix )
+
+        ( maxX, maxY ) =
+            ( width - 1, height - 1 )
+
+        maxCount =
+            width * height
+    in
+    Random.int 5 maxCount
+        |> Random.andThen (\len -> Random.list len (coordGenerator maxX maxY))
+        |> Random.map List.Extra.unique
+
+
+coordGenerator : Int -> Int -> Random.Generator ( Int, Int )
+coordGenerator maxX maxY =
+    Random.pair (Random.int 0 maxX) (Random.int 0 maxY)
+
+
+
+-- SUBSCRIPTIONS
+
+
+subscriptions : Model -> Sub Msg
+subscriptions model =
+    Sub.none
 
 
 
