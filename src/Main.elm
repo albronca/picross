@@ -9,7 +9,7 @@ import Element.Events as Events
 import Element.Font as Font
 import Element.Input as Input
 import Html exposing (Html)
-import Json.Decode as Decode
+import Json.Decode as Decode exposing (Decoder)
 import List.Extra
 import Matrix exposing (Matrix)
 import Random
@@ -47,6 +47,7 @@ type alias WindowSize =
 type GameState
     = Setup
     | Playing
+    | LevelSelect
     | Won
 
 
@@ -76,47 +77,19 @@ init windowSize =
 
 
 type Msg
-    = ToggleCell Int Int
-    | SolutionGenerated (List ( Int, Int ))
-    | KeyDown String
+    = KeyDown String
     | KeyUp String
-    | NewGame
+    | NewRandomGame
+    | SelectLevel Int
+    | ShowLevelSelect
+    | SolutionGenerated (List ( Int, Int ))
+    | ToggleCell Int Int
     | WindowResize Int Int
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
-    case Debug.log "msg" msg of
-        ToggleCell x y ->
-            let
-                toggleFunction =
-                    if model.shiftPressed then
-                        flagCell
-
-                    else
-                        fillCell
-
-                newBoard =
-                    toggleFunction ( x, y ) model.board
-
-                newGameState =
-                    getGameState { model | board = newBoard }
-            in
-            ( { model
-                | board = newBoard
-                , gameState = newGameState
-              }
-            , Cmd.none
-            )
-
-        SolutionGenerated coordList ->
-            ( { model
-                | solution = toggleCells coordList model.solution
-                , gameState = Playing
-              }
-            , Cmd.none
-            )
-
+    case msg of
         KeyDown key ->
             case key of
                 "Shift" ->
@@ -141,9 +114,59 @@ update msg model =
                 _ ->
                     ( model, Cmd.none )
 
-        NewGame ->
+        NewRandomGame ->
             ( { model | board = Matrix.repeat 5 5 Empty }
             , Random.generate SolutionGenerated (coordListGenerator model.solution)
+            )
+
+        SelectLevel levelNumber ->
+            let
+                newSolution =
+                    Matrix.repeat 5 5 False
+
+                puzzle =
+                    Array.get levelNumber puzzles
+                        |> Maybe.withDefault emptyPuzzle
+            in
+            ( { model
+                | solution = toggleCells puzzle.solution newSolution
+                , board = Matrix.repeat 5 5 Empty
+                , gameState = Playing
+              }
+            , Cmd.none
+            )
+
+        ShowLevelSelect ->
+            ( { model | gameState = LevelSelect }, Cmd.none )
+
+        SolutionGenerated coordList ->
+            ( { model
+                | solution = toggleCells coordList model.solution
+                , gameState = Playing
+              }
+            , Cmd.none
+            )
+
+        ToggleCell x y ->
+            let
+                toggleFunction =
+                    if model.shiftPressed then
+                        flagCell
+
+                    else
+                        fillCell
+
+                newBoard =
+                    toggleFunction ( x, y ) model.board
+
+                newGameState =
+                    getGameState { model | board = newBoard }
+            in
+            ( { model
+                | board = newBoard
+                , gameState = newGameState
+              }
+            , Cmd.none
             )
 
         WindowResize width height ->
@@ -260,7 +283,7 @@ subscriptions model =
         ]
 
 
-keyDecoder : (String -> Msg) -> Decode.Decoder Msg
+keyDecoder : (String -> Msg) -> Decoder Msg
 keyDecoder msgConstructor =
     Decode.map msgConstructor (Decode.field "key" Decode.string)
 
@@ -300,7 +323,19 @@ menu model =
         Playing ->
             none
 
-        _ ->
+        LevelSelect ->
+            Array.toList puzzles
+                |> List.indexedMap levelSelectButton
+                |> wrappedRow
+                    [ centerX
+                    , centerY
+                    , width <| px 500
+                    , height <| px 500
+                    , Background.color (rgba 255 255 255 0.8)
+                    , Font.size 24
+                    ]
+
+        Setup ->
             column
                 [ centerX
                 , centerY
@@ -309,21 +344,44 @@ menu model =
                 , Background.color (rgba 255 255 255 0.8)
                 , Font.size 24
                 ]
-                [ el
-                    [ centerX, centerY ]
-                    (text
-                        (if model.gameState == Setup then
-                            "picross"
-
-                         else
-                            "wow good job"
-                        )
-                    )
+                [ el [ centerX, centerY ] (text "picross")
                 , Input.button [ centerX, centerY ]
-                    { onPress = Just NewGame
-                    , label = text "New Game"
+                    { onPress = Just NewRandomGame
+                    , label = text "New Random Game"
+                    }
+                , Input.button [ centerX, centerY ]
+                    { onPress = Just ShowLevelSelect
+                    , label = text "Level Select"
                     }
                 ]
+
+        Won ->
+            column
+                [ centerX
+                , centerY
+                , width <| px 500
+                , height <| px 500
+                , Background.color (rgba 255 255 255 0.8)
+                , Font.size 24
+                ]
+                [ el [ centerX, centerY ] (text "wow good job")
+                , Input.button [ centerX, centerY ]
+                    { onPress = Just NewRandomGame
+                    , label = text "New Random Game"
+                    }
+                , Input.button [ centerX, centerY ]
+                    { onPress = Just ShowLevelSelect
+                    , label = text "Level Select"
+                    }
+                ]
+
+
+levelSelectButton : Int -> Puzzle -> Element Msg
+levelSelectButton index puzzle =
+    column [ padding 20, centerX, Events.onClick (SelectLevel index) ]
+        [ el [ centerX ] (text <| String.fromInt <| index + 1)
+        , el [ centerX ] (text puzzle.name)
+        ]
 
 
 gameBoardRow : Int -> List CellState -> Element Msg
@@ -406,3 +464,41 @@ getColumns matrix =
         |> List.map (\x -> Matrix.getColumn x matrix)
         |> List.map (Result.withDefault Array.empty)
         |> List.map Array.toList
+
+
+
+-- PUZZLES
+
+
+type alias Puzzle =
+    { name : String
+    , solution : List ( Int, Int )
+    }
+
+
+puzzles : Array Puzzle
+puzzles =
+    [ { name = "left arrow"
+      , solution =
+            [ ( 0, 2 )
+            , ( 1, 1 )
+            , ( 1, 2 )
+            , ( 1, 3 )
+            , ( 2, 0 )
+            , ( 2, 1 )
+            , ( 2, 2 )
+            , ( 2, 3 )
+            , ( 2, 4 )
+            , ( 3, 2 )
+            , ( 4, 2 )
+            ]
+      }
+    ]
+        |> Array.fromList
+
+
+emptyPuzzle : Puzzle
+emptyPuzzle =
+    { name = ""
+    , solution = []
+    }
