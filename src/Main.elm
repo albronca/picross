@@ -12,6 +12,7 @@ import Html exposing (Html)
 import Json.Decode as Decode exposing (Decoder)
 import List.Extra
 import Matrix exposing (Matrix)
+import Puzzle exposing (Puzzle, allPuzzles, empty)
 import Random
 
 
@@ -125,7 +126,7 @@ update msg model =
                     Matrix.repeat 5 5 False
 
                 puzzle =
-                    Array.get levelNumber puzzles |> Maybe.withDefault emptyPuzzle
+                    Array.get levelNumber allPuzzles |> Maybe.withDefault empty
             in
             ( { model
                 | solution = puzzle.solution
@@ -323,7 +324,7 @@ menu model =
             none
 
         LevelSelect ->
-            Array.toList puzzles
+            Array.toList allPuzzles
                 |> List.indexedMap levelSelectButton
                 |> wrappedRow
                     [ centerX
@@ -463,105 +464,3 @@ getColumns matrix =
         |> List.map (\x -> Matrix.getColumn x matrix)
         |> List.map (Maybe.withDefault Array.empty)
         |> List.map Array.toList
-
-
-
--- PUZZLES
-
-
-type alias Puzzle =
-    { name : String
-    , solution : Matrix Bool
-    }
-
-
-puzzles : Array Puzzle
-puzzles =
-    [ { name = "left arrow"
-      , solution =
-            [ [ False, False, True, False, False ]
-            , [ False, True, True, False, False ]
-            , [ True, True, True, True, True ]
-            , [ False, True, True, False, False ]
-            , [ False, False, True, False, False ]
-            ]
-      }
-    , { name = "division sign"
-      , solution =
-            [ [ False, False, True, False, False ]
-            , [ False, False, False, False, False ]
-            , [ True, True, True, True, True ]
-            , [ False, False, False, False, False ]
-            , [ False, False, True, False, False ]
-            ]
-      }
-    , { name = "black small sqaure"
-      , solution =
-            [ [ False, False, False, False, False ]
-            , [ False, True, True, True, False ]
-            , [ False, True, True, True, False ]
-            , [ False, True, True, True, False ]
-            , [ False, False, False, False, False ]
-            ]
-      }
-    , { name = "question mark"
-      , solution =
-            [ [ False, True, True, True, False ]
-            , [ False, False, False, True, False ]
-            , [ False, False, True, False, False ]
-            , [ False, False, False, False, False ]
-            , [ False, False, True, False, False ]
-            ]
-      }
-    , { name = "double exclamation mark"
-      , solution =
-            [ [ False, True, False, True, False ]
-            , [ False, True, False, True, False ]
-            , [ False, True, False, True, False ]
-            , [ False, False, False, False, False ]
-            , [ False, True, False, True, False ]
-            ]
-      }
-    , { name = "roman cross"
-      , solution =
-            [ [ False, False, False, False, False ]
-            , [ False, False, True, False, False ]
-            , [ False, True, True, True, False ]
-            , [ False, False, True, False, False ]
-            , [ False, False, True, False, False ]
-            ]
-      }
-    , { name = "japanese 'here' button"
-      , solution =
-            [ [ False, False, False, False, False ]
-            , [ True, True, False, True, True ]
-            , [ False, True, False, False, True ]
-            , [ True, True, False, True, True ]
-            , [ False, False, False, False, False ]
-            ]
-      }
-    , { name = "black heart"
-      , solution =
-            [ [ False, True, False, True, False ]
-            , [ True, True, True, True, True ]
-            , [ True, True, True, True, True ]
-            , [ False, True, True, True, False ]
-            , [ False, False, True, False, False ]
-            ]
-      }
-    ]
-        |> List.map
-            (\{ name, solution } ->
-                solution
-                    |> Matrix.fromList
-                    |> Maybe.withDefault Matrix.empty
-                    |> Puzzle name
-            )
-        |> Array.fromList
-
-
-emptyPuzzle : Puzzle
-emptyPuzzle =
-    { name = ""
-    , solution = Matrix.empty
-    }
