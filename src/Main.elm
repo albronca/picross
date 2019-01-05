@@ -125,11 +125,10 @@ update msg model =
                     Matrix.repeat 5 5 False
 
                 puzzle =
-                    Array.get levelNumber puzzles
-                        |> Maybe.withDefault emptyPuzzle
+                    Array.get levelNumber puzzles |> Maybe.withDefault emptyPuzzle
             in
             ( { model
-                | solution = toggleCells puzzle.solution newSolution
+                | solution = puzzle.solution
                 , board = Matrix.repeat 5 5 Empty
                 , gameState = Playing
               }
@@ -454,7 +453,7 @@ getRows : Matrix a -> List (List a)
 getRows matrix =
     List.range 0 (Matrix.height matrix - 1)
         |> List.map (\y -> Matrix.getRow y matrix)
-        |> List.map (Result.withDefault Array.empty)
+        |> List.map (Maybe.withDefault Array.empty)
         |> List.map Array.toList
 
 
@@ -462,7 +461,7 @@ getColumns : Matrix a -> List (List a)
 getColumns matrix =
     List.range 0 (Matrix.width matrix - 1)
         |> List.map (\x -> Matrix.getColumn x matrix)
-        |> List.map (Result.withDefault Array.empty)
+        |> List.map (Maybe.withDefault Array.empty)
         |> List.map Array.toList
 
 
@@ -472,7 +471,7 @@ getColumns matrix =
 
 type alias Puzzle =
     { name : String
-    , solution : List ( Int, Int )
+    , solution : Matrix Bool
     }
 
 
@@ -480,25 +479,89 @@ puzzles : Array Puzzle
 puzzles =
     [ { name = "left arrow"
       , solution =
-            [ ( 0, 2 )
-            , ( 1, 1 )
-            , ( 1, 2 )
-            , ( 1, 3 )
-            , ( 2, 0 )
-            , ( 2, 1 )
-            , ( 2, 2 )
-            , ( 2, 3 )
-            , ( 2, 4 )
-            , ( 3, 2 )
-            , ( 4, 2 )
+            [ [ False, False, True, False, False ]
+            , [ False, True, True, False, False ]
+            , [ True, True, True, True, True ]
+            , [ False, True, True, False, False ]
+            , [ False, False, True, False, False ]
+            ]
+      }
+    , { name = "division sign"
+      , solution =
+            [ [ False, False, True, False, False ]
+            , [ False, False, False, False, False ]
+            , [ True, True, True, True, True ]
+            , [ False, False, False, False, False ]
+            , [ False, False, True, False, False ]
+            ]
+      }
+    , { name = "black small sqaure"
+      , solution =
+            [ [ False, False, False, False, False ]
+            , [ False, True, True, True, False ]
+            , [ False, True, True, True, False ]
+            , [ False, True, True, True, False ]
+            , [ False, False, False, False, False ]
+            ]
+      }
+    , { name = "question mark"
+      , solution =
+            [ [ False, True, True, True, False ]
+            , [ False, False, False, True, False ]
+            , [ False, False, True, False, False ]
+            , [ False, False, False, False, False ]
+            , [ False, False, True, False, False ]
+            ]
+      }
+    , { name = "double exclamation mark"
+      , solution =
+            [ [ False, True, False, True, False ]
+            , [ False, True, False, True, False ]
+            , [ False, True, False, True, False ]
+            , [ False, False, False, False, False ]
+            , [ False, True, False, True, False ]
+            ]
+      }
+    , { name = "roman cross"
+      , solution =
+            [ [ False, False, False, False, False ]
+            , [ False, False, True, False, False ]
+            , [ False, True, True, True, False ]
+            , [ False, False, True, False, False ]
+            , [ False, False, True, False, False ]
+            ]
+      }
+    , { name = "japanese 'here' button"
+      , solution =
+            [ [ False, False, False, False, False ]
+            , [ True, True, False, True, True ]
+            , [ False, True, False, False, True ]
+            , [ True, True, False, True, True ]
+            , [ False, False, False, False, False ]
+            ]
+      }
+    , { name = "black heart"
+      , solution =
+            [ [ False, True, False, True, False ]
+            , [ True, True, True, True, True ]
+            , [ True, True, True, True, True ]
+            , [ False, True, True, True, False ]
+            , [ False, False, True, False, False ]
             ]
       }
     ]
+        |> List.map
+            (\{ name, solution } ->
+                solution
+                    |> Matrix.fromList
+                    |> Maybe.withDefault Matrix.empty
+                    |> Puzzle name
+            )
         |> Array.fromList
 
 
 emptyPuzzle : Puzzle
 emptyPuzzle =
     { name = ""
-    , solution = []
+    , solution = Matrix.empty
     }
