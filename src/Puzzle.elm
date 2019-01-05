@@ -1,4 +1,4 @@
-module Puzzle exposing (Puzzle, allPuzzles, empty)
+module Puzzle exposing (Puzzle, allPuzzles, empty, height, width)
 
 import Array exposing (Array)
 import Matrix exposing (Matrix)
@@ -100,6 +100,21 @@ allPuzzles =
             , [ 0, 0, 1, 0, 0 ]
             ]
       }
+    , { id = 9
+      , name = "eyes"
+      , solution =
+            [ [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ]
+            , [ 1, 1, 1, 1, 0, 0, 1, 1, 1, 1 ]
+            , [ 1, 0, 0, 1, 0, 0, 1, 0, 0, 1 ]
+            , [ 1, 0, 0, 1, 0, 0, 1, 0, 0, 1 ]
+            , [ 1, 0, 1, 1, 0, 0, 1, 0, 1, 1 ]
+            , [ 1, 0, 1, 1, 0, 0, 1, 0, 1, 1 ]
+            , [ 1, 0, 1, 1, 0, 0, 1, 0, 1, 1 ]
+            , [ 1, 0, 1, 1, 0, 0, 1, 0, 1, 1 ]
+            , [ 1, 1, 1, 1, 0, 0, 1, 1, 1, 1 ]
+            , [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ]
+            ]
+      }
     ]
         |> List.map fromPuzzleSeed
         |> Array.fromList
@@ -112,6 +127,16 @@ fromPuzzleSeed { id, name, solution } =
         |> Maybe.withDefault Matrix.empty
         |> Matrix.map ((==) 1)
         |> Puzzle id name
+
+
+height : Puzzle -> Int
+height =
+    .solution >> Matrix.height
+
+
+width : Puzzle -> Int
+width =
+    .solution >> Matrix.width
 
 
 empty : Puzzle

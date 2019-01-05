@@ -130,15 +130,19 @@ update msg model =
 
         SelectLevel levelNumber ->
             let
-                newSolution =
-                    Matrix.repeat 5 5 False
-
                 puzzle =
-                    Array.get levelNumber allPuzzles |> Maybe.withDefault empty
+                    Array.get levelNumber allPuzzles
+                        |> Maybe.withDefault Puzzle.empty
+
+                solutionWidth =
+                    Puzzle.width puzzle
+
+                solutionHeight =
+                    Puzzle.height puzzle
             in
             ( { model
                 | solution = puzzle.solution
-                , board = Matrix.repeat 5 5 Empty
+                , board = Matrix.repeat solutionWidth solutionHeight Empty
                 , gameState = Playing
               }
             , Cmd.none
