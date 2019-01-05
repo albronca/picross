@@ -46,7 +46,8 @@ type alias WindowSize =
 
 
 type GameState
-    = Setup
+    = MainMenu
+    | Paused
     | Playing
     | LevelSelect
     | Won
@@ -63,7 +64,7 @@ initialModel windowSize =
     { board = Matrix.repeat 5 5 Empty
     , solution = Matrix.repeat 5 5 False
     , shiftPressed = False
-    , gameState = Setup
+    , gameState = MainMenu
     , windowSize = windowSize
     }
 
@@ -81,6 +82,7 @@ type Msg
     = KeyDown String
     | KeyUp String
     | NewRandomGame
+    | ResumeGame
     | SelectLevel Int
     | ShowLevelSelect
     | SolutionGenerated (List ( Int, Int ))
@@ -92,13 +94,20 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         KeyDown key ->
-            case key of
+            case Debug.log "key" key of
                 "Shift" ->
-                    ( { model
-                        | shiftPressed = True
-                      }
-                    , Cmd.none
-                    )
+                    ( { model | shiftPressed = True }, Cmd.none )
+
+                "Enter" ->
+                    let
+                        newGameState =
+                            if model.gameState == Playing then
+                                Paused
+
+                            else
+                                Playing
+                    in
+                    ( { model | gameState = newGameState }, Cmd.none )
 
                 _ ->
                     ( model, Cmd.none )
@@ -106,11 +115,7 @@ update msg model =
         KeyUp key ->
             case key of
                 "Shift" ->
-                    ( { model
-                        | shiftPressed = False
-                      }
-                    , Cmd.none
-                    )
+                    ( { model | shiftPressed = False }, Cmd.none )
 
                 _ ->
                     ( model, Cmd.none )
@@ -119,6 +124,9 @@ update msg model =
             ( { model | board = Matrix.repeat 5 5 Empty }
             , Random.generate SolutionGenerated (coordListGenerator model.solution)
             )
+
+        ResumeGame ->
+            ( { model | gameState = Playing }, Cmd.none )
 
         SelectLevel levelNumber ->
             let
@@ -277,10 +285,14 @@ coordGenerator maxX maxY =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    Sub.batch
-        [ onKeyDown <| keyDecoder KeyDown
-        , onKeyUp <| keyDecoder KeyUp
-        ]
+    if model.gameState == Playing || model.gameState == Paused then
+        Sub.batch
+            [ onKeyDown <| keyDecoder KeyDown
+            , onKeyUp <| keyDecoder KeyUp
+            ]
+
+    else
+        Sub.none
 
 
 keyDecoder : (String -> Msg) -> Decoder Msg
@@ -335,7 +347,31 @@ menu model =
                     , Font.size 24
                     ]
 
-        Setup ->
+        Paused ->
+            column
+                [ centerX
+                , centerY
+                , width <| px 500
+                , height <| px 500
+                , Background.color (rgba 255 255 255 0.8)
+                , Font.size 24
+                ]
+                [ el [ centerX, centerY ] (text "PAUSED")
+                , Input.button [ centerX, centerY ]
+                    { onPress = Just ResumeGame
+                    , label = text "Resume Game"
+                    }
+                , Input.button [ centerX, centerY ]
+                    { onPress = Just NewRandomGame
+                    , label = text "New Random Game"
+                    }
+                , Input.button [ centerX, centerY ]
+                    { onPress = Just ShowLevelSelect
+                    , label = text "Level Select"
+                    }
+                ]
+
+        MainMenu ->
             column
                 [ centerX
                 , centerY
