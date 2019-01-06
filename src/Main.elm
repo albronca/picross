@@ -5,6 +5,7 @@ import Browser
 import Browser.Events exposing (onKeyDown, onKeyUp, onResize)
 import Element exposing (..)
 import Element.Background as Background
+import Element.Border as Border
 import Element.Events as Events
 import Element.Font as Font
 import Element.Input as Input
@@ -302,7 +303,6 @@ gameView model =
             , centerY
             , width <| px 500
             , height <| px 500
-            , spacing 4
             , Font.size 12
             , onLeft <| rowHints model.solution
             , above <| columnHints model.solution
@@ -389,17 +389,65 @@ menu model =
 
 gameBoardRow : Int -> List CellState -> Element Msg
 gameBoardRow y =
+    let
+        topBorderWidth =
+            if y > 0 then
+                2
+
+            else
+                0
+
+        borderColor =
+            if modBy 5 y == 0 then
+                rgb255 0 0 0
+
+            else
+                rgb255 255 255 255
+    in
     List.indexedMap (gameBoardCell y)
-        >> row [ width fill, height fill, centerX, spacing 4 ]
+        >> row
+            [ width fill
+            , height fill
+            , centerX
+            , Border.color borderColor
+            , Border.widthEach
+                { bottom = 0
+                , left = 0
+                , right = 0
+                , top = topBorderWidth
+                }
+            ]
 
 
 gameBoardCell : Int -> Int -> CellState -> Element Msg
 gameBoardCell y x cellState =
+    let
+        leftBorderWidth =
+            if x > 0 then
+                2
+
+            else
+                0
+
+        borderColor =
+            if modBy 5 x == 0 then
+                rgb255 0 0 0
+
+            else
+                rgb255 255 255 255
+    in
     el
         [ Background.color <| cellColor cellState
         , width fill
         , height fill
         , Events.onClick <| ToggleCell x y
+        , Border.color borderColor
+        , Border.widthEach
+            { bottom = 0
+            , left = leftBorderWidth
+            , right = 0
+            , top = 0
+            }
         ]
         none
 
