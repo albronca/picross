@@ -34,10 +34,18 @@ main =
 type alias Model =
     { board : Matrix CellState
     , solution : Matrix Bool
+    , rowHints : List (List Hint)
+    , columnHints : List (List Hint)
     , puzzleSize : PuzzleSize
     , shiftPressed : Bool
     , gameState : GameState
     , windowSize : WindowSize
+    }
+
+
+type alias Hint =
+    { groupSize : Int
+    , used : Bool
     }
 
 
@@ -64,6 +72,8 @@ initialModel : WindowSize -> Model
 initialModel windowSize =
     { board = Matrix.repeat 5 5 Empty
     , solution = Matrix.repeat 5 5 False
+    , rowHints = []
+    , columnHints = []
     , puzzleSize = Small
     , shiftPressed = False
     , gameState = MainMenu
@@ -155,6 +165,8 @@ update msg model =
             ( { model
                 | solution = solution
                 , board = Matrix.repeat solutionWidth solutionHeight Empty
+                , rowHints = getRowHints solution
+                , columnHints = getColumnHints solution
                 , gameState = Playing
               }
             , Cmd.none
@@ -193,6 +205,38 @@ getGameState model =
 
     else
         Playing
+
+
+getRowHints : Matrix Bool -> List (List Hint)
+getRowHints solution =
+    solution
+        |> Matrix.rows
+        |> List.map Array.toList
+        |> List.map List.Extra.group
+        |> List.map (List.filter Tuple.first)
+        |> List.map (List.map Tuple.second)
+        |> List.map (List.map List.length)
+        |> List.map (List.map ((+) 1))
+        |> List.map
+            (List.map
+                (\groupSize -> { groupSize = groupSize, used = False })
+            )
+
+
+getColumnHints : Matrix Bool -> List (List Hint)
+getColumnHints solution =
+    solution
+        |> Matrix.columns
+        |> List.map Array.toList
+        |> List.map List.Extra.group
+        |> List.map (List.filter Tuple.first)
+        |> List.map (List.map Tuple.second)
+        |> List.map (List.map List.length)
+        |> List.map (List.map ((+) 1))
+        |> List.map
+            (List.map
+                (\groupSize -> { groupSize = groupSize, used = False })
+            )
 
 
 boardMatchesSolution : Model -> Bool
@@ -296,7 +340,8 @@ view model =
 gameView : Model -> Element Msg
 gameView model =
     model.board
-        |> getRows
+        |> Matrix.rows
+        |> List.map Array.toList
         |> List.indexedMap gameBoardRow
         |> column
             [ centerX
@@ -304,8 +349,8 @@ gameView model =
             , width <| px 500
             , height <| px 500
             , Font.size 12
-            , onLeft <| rowHints model.solution
-            , above <| columnHints model.solution
+            , onLeft <| rowHints model.rowHints
+            , above <| columnHints model.columnHints
             , inFront <|
                 menu model
             ]
@@ -465,53 +510,34 @@ cellColor cellState =
             rgb255 255 0 0
 
 
-rowHints : Matrix Bool -> Element Msg
-rowHints solution =
-    solution
-        |> getRows
-        |> List.map List.Extra.group
-        |> List.map (List.filter Tuple.first)
-        |> List.map (List.map Tuple.second)
-        |> List.map (List.map List.length)
-        |> List.map (List.map ((+) 1))
-        |> List.map (List.map String.fromInt)
-        |> List.map (List.map text)
+rowHints : List (List Hint) -> Element Msg
+rowHints hints =
+    hints
+        |> List.map (List.map hintElement)
         |> List.map (List.map <| el [ alignRight ])
         |> List.map (row [ height fill, spacing 8 ])
         |> column [ height <| px 500, spacing 4, paddingXY 20 0 ]
 
 
-columnHints : Matrix Bool -> Element Msg
-columnHints solution =
-    solution
-        |> getColumns
-        |> List.map List.Extra.group
-        |> List.map (List.filter Tuple.first)
-        |> List.map (List.map Tuple.second)
-        |> List.map (List.map List.length)
-        |> List.map (List.map ((+) 1))
-        |> List.map (List.map String.fromInt)
-        |> List.map (List.map text)
+columnHints : List (List Hint) -> Element Msg
+columnHints hints =
+    hints
+        |> List.map (List.map hintElement)
         |> List.map (List.map <| el [ centerX ])
         |> List.map (column [ width fill, spacing 8 ])
         |> row [ width <| px 500, spacing 4, centerX, paddingXY 0 20 ]
 
 
+hintElement : Hint -> Element Msg
+hintElement hint =
+    let
+        color =
+            if hint.used then
+                rgb255 100 100 100
 
--- UTILITY
-
-
-getRows : Matrix a -> List (List a)
-getRows matrix =
-    List.range 0 (Matrix.height matrix - 1)
-        |> List.map (\y -> Matrix.getRow y matrix)
-        |> List.map (Maybe.withDefault Array.empty)
-        |> List.map Array.toList
-
-
-getColumns : Matrix a -> List (List a)
-getColumns matrix =
-    List.range 0 (Matrix.width matrix - 1)
-        |> List.map (\x -> Matrix.getColumn x matrix)
-        |> List.map (Maybe.withDefault Array.empty)
-        |> List.map Array.toList
+            else
+                rgb255 0 0 0
+    in
+    String.fromInt hint.groupSize
+        |> text
+        |> el [ Font.color color ]

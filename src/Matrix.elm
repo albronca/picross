@@ -1,5 +1,6 @@
 module Matrix exposing
     ( Matrix
+    , columns
     , empty
     , filter
     , fromList
@@ -10,6 +11,7 @@ module Matrix exposing
     , indexedMap
     , map
     , repeat
+    , rows
     , set
     , toIndexedArray
     , update
@@ -237,3 +239,17 @@ filter f matrix =
 toIndexedArray : Matrix a -> Array ( ( Int, Int ), a )
 toIndexedArray matrix =
     (indexedMap (\x y v -> ( ( x, y ), v )) matrix).data
+
+
+rows : Matrix a -> List (Array a)
+rows matrix =
+    List.range 0 (height matrix - 1)
+        |> List.map (\y -> getRow y matrix)
+        |> List.map (Maybe.withDefault Array.empty)
+
+
+columns : Matrix a -> List (Array a)
+columns matrix =
+    List.range 0 (width matrix - 1)
+        |> List.map (\x -> getColumn x matrix)
+        |> List.map (Maybe.withDefault Array.empty)
