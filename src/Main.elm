@@ -13,7 +13,7 @@ import Html exposing (Html)
 import Json.Decode as Decode exposing (Decoder)
 import List.Extra
 import Matrix exposing (Matrix)
-import Puzzle exposing (Puzzle, PuzzleSize(..), empty)
+import Puzzle
 import Random
 
 
@@ -36,7 +36,7 @@ type alias Model =
     , solution : Matrix Bool
     , rowHints : List (List Hint)
     , columnHints : List (List Hint)
-    , puzzleSize : PuzzleSize
+    , puzzleSize : Puzzle.PuzzleSize
     , shiftPressed : Bool
     , gameState : GameState
     , windowSize : WindowSize
@@ -74,7 +74,7 @@ initialModel windowSize =
     , solution = Matrix.repeat 5 5 False
     , rowHints = []
     , columnHints = []
-    , puzzleSize = Small
+    , puzzleSize = Puzzle.Small
     , shiftPressed = False
     , gameState = MainMenu
     , windowSize = windowSize
@@ -97,7 +97,7 @@ type Msg
     | GenerateRandomGame
     | ResumeGame
     | ReturnToMainMenu
-    | SelectPuzzleSize PuzzleSize
+    | SelectPuzzleSize Puzzle.PuzzleSize
     | SolutionGenerated (Matrix Bool)
     | ToggleCell Int Int
     | WindowResize Int Int
@@ -404,9 +404,9 @@ menu model =
                     , selected = Just model.puzzleSize
                     , label = Input.labelAbove [] (text "Puzzle Size")
                     , options =
-                        [ Input.option Small (text "5x5")
-                        , Input.option Medium (text "10x10")
-                        , Input.option Large (text "15x15")
+                        [ Input.option Puzzle.Small (text "5x5")
+                        , Input.option Puzzle.Medium (text "10x10")
+                        , Input.option Puzzle.Large (text "15x15")
                         ]
                     }
                 , Input.button [ centerX, centerY ]
