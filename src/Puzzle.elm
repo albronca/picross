@@ -1,7 +1,17 @@
-module Puzzle exposing (Puzzle, allPuzzles, empty, height, width)
+module Puzzle exposing
+    ( Puzzle
+    , PuzzleSize(..)
+    , allPuzzles
+    , empty
+    , height
+    , solutionGenerator
+    , width
+    )
 
 import Array exposing (Array)
 import Matrix exposing (Matrix)
+import Random
+import Random.Extra
 
 
 type alias Puzzle =
@@ -16,6 +26,12 @@ type alias PuzzleSeed =
     , name : String
     , solution : List (List Int)
     }
+
+
+type PuzzleSize
+    = Small
+    | Medium
+    | Large
 
 
 allPuzzles : Array Puzzle
@@ -145,3 +161,24 @@ empty =
     , name = ""
     , solution = Matrix.empty
     }
+
+
+solutionGenerator : PuzzleSize -> Random.Generator (Matrix Bool)
+solutionGenerator puzzleSize =
+    let
+        edgeLength =
+            case puzzleSize of
+                Small ->
+                    5
+
+                Medium ->
+                    10
+
+                Large ->
+                    15
+    in
+    Random.Extra.bool
+        |> Random.list edgeLength
+        |> Random.list edgeLength
+        |> Random.map
+            (Matrix.fromList >> Maybe.withDefault Matrix.empty)

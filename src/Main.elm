@@ -12,7 +12,7 @@ import Html exposing (Html)
 import Json.Decode as Decode exposing (Decoder)
 import List.Extra
 import Matrix exposing (Matrix)
-import Puzzle exposing (Puzzle, allPuzzles, empty)
+import Puzzle exposing (Puzzle, PuzzleSize(..), empty)
 import Random
 
 
@@ -33,6 +33,7 @@ main =
 type alias Model =
     { board : Matrix CellState
     , solution : Matrix Bool
+    , puzzleSize : PuzzleSize
     , shiftPressed : Bool
     , gameState : GameState
     , windowSize : WindowSize
@@ -49,7 +50,6 @@ type GameState
     = MainMenu
     | Paused
     | Playing
-    | LevelSelect
     | Won
 
 
@@ -63,6 +63,7 @@ initialModel : WindowSize -> Model
 initialModel windowSize =
     { board = Matrix.repeat 5 5 Empty
     , solution = Matrix.repeat 5 5 False
+    , puzzleSize = Small
     , shiftPressed = False
     , gameState = MainMenu
     , windowSize = windowSize
@@ -79,13 +80,14 @@ init windowSize =
 
 
 type Msg
-    = KeyDown String
+    = ClearBoard
+    | KeyDown String
     | KeyUp String
-    | NewRandomGame
+    | GenerateRandomGame
     | ResumeGame
-    | SelectLevel Int
-    | ShowLevelSelect
-    | SolutionGenerated (List ( Int, Int ))
+    | ReturnToMainMenu
+    | SelectPuzzleSize PuzzleSize
+    | SolutionGenerated (Matrix Bool)
     | ToggleCell Int Int
     | WindowResize Int Int
 
@@ -93,6 +95,13 @@ type Msg
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
+        ClearBoard ->
+            let
+                clearedBoard =
+                    model.board |> Matrix.map (always Empty)
+            in
+            ( { model | board = clearedBoard }, Cmd.none )
+
         KeyDown key ->
             case Debug.log "key" key of
                 "Shift" ->
@@ -120,40 +129,31 @@ update msg model =
                 _ ->
                     ( model, Cmd.none )
 
-        NewRandomGame ->
-            ( { model | board = Matrix.repeat 5 5 Empty }
-            , Random.generate SolutionGenerated (coordListGenerator model.solution)
+        GenerateRandomGame ->
+            ( model
+            , Puzzle.solutionGenerator model.puzzleSize |> Random.generate SolutionGenerated
             )
 
         ResumeGame ->
             ( { model | gameState = Playing }, Cmd.none )
 
-        SelectLevel levelNumber ->
-            let
-                puzzle =
-                    Array.get levelNumber allPuzzles
-                        |> Maybe.withDefault Puzzle.empty
+        ReturnToMainMenu ->
+            ( { model | gameState = MainMenu }, Cmd.none )
 
+        SelectPuzzleSize puzzleSize ->
+            ( { model | puzzleSize = puzzleSize }, Cmd.none )
+
+        SolutionGenerated solution ->
+            let
                 solutionWidth =
-                    Puzzle.width puzzle
+                    Matrix.width solution
 
                 solutionHeight =
-                    Puzzle.height puzzle
+                    Matrix.height solution
             in
             ( { model
-                | solution = puzzle.solution
+                | solution = solution
                 , board = Matrix.repeat solutionWidth solutionHeight Empty
-                , gameState = Playing
-              }
-            , Cmd.none
-            )
-
-        ShowLevelSelect ->
-            ( { model | gameState = LevelSelect }, Cmd.none )
-
-        SolutionGenerated coordList ->
-            ( { model
-                | solution = toggleCells coordList model.solution
                 , gameState = Playing
               }
             , Cmd.none
@@ -261,28 +261,6 @@ toggleCell ( toggleX, toggleY ) =
         )
 
 
-coordListGenerator : Matrix a -> Random.Generator (List ( Int, Int ))
-coordListGenerator matrix =
-    let
-        ( width, height ) =
-            ( Matrix.width matrix, Matrix.height matrix )
-
-        ( maxX, maxY ) =
-            ( width - 1, height - 1 )
-
-        maxCount =
-            width * height
-    in
-    Random.int 5 maxCount
-        |> Random.andThen (\len -> Random.list len (coordGenerator maxX maxY))
-        |> Random.map List.Extra.unique
-
-
-coordGenerator : Int -> Int -> Random.Generator ( Int, Int )
-coordGenerator maxX maxY =
-    Random.pair (Random.int 0 maxX) (Random.int 0 maxY)
-
-
 
 -- SUBSCRIPTIONS
 
@@ -339,18 +317,6 @@ menu model =
         Playing ->
             none
 
-        LevelSelect ->
-            Array.toList allPuzzles
-                |> List.indexedMap levelSelectButton
-                |> wrappedRow
-                    [ centerX
-                    , centerY
-                    , width <| px 500
-                    , height <| px 500
-                    , Background.color (rgba 255 255 255 0.8)
-                    , Font.size 24
-                    ]
-
         Paused ->
             column
                 [ centerX
@@ -366,12 +332,12 @@ menu model =
                     , label = text "Resume Game"
                     }
                 , Input.button [ centerX, centerY ]
-                    { onPress = Just NewRandomGame
-                    , label = text "New Random Game"
+                    { onPress = Just ClearBoard
+                    , label = text "Clear Board"
                     }
                 , Input.button [ centerX, centerY ]
-                    { onPress = Just ShowLevelSelect
-                    , label = text "Level Select"
+                    { onPress = Just ReturnToMainMenu
+                    , label = text "Main Menu"
                     }
                 ]
 
@@ -385,13 +351,22 @@ menu model =
                 , Font.size 24
                 ]
                 [ el [ centerX, centerY ] (text "picross")
-                , Input.button [ centerX, centerY ]
-                    { onPress = Just NewRandomGame
-                    , label = text "New Random Game"
+                , Input.radio
+                    [ padding 10
+                    , spacing 20
+                    ]
+                    { onChange = SelectPuzzleSize
+                    , selected = Just model.puzzleSize
+                    , label = Input.labelAbove [] (text "Puzzle Size")
+                    , options =
+                        [ Input.option Small (text "5x5")
+                        , Input.option Medium (text "10x10")
+                        , Input.option Large (text "15x15")
+                        ]
                     }
                 , Input.button [ centerX, centerY ]
-                    { onPress = Just ShowLevelSelect
-                    , label = text "Level Select"
+                    { onPress = Just GenerateRandomGame
+                    , label = text "Start"
                     }
                 ]
 
@@ -406,22 +381,10 @@ menu model =
                 ]
                 [ el [ centerX, centerY ] (text "wow good job")
                 , Input.button [ centerX, centerY ]
-                    { onPress = Just NewRandomGame
-                    , label = text "New Random Game"
-                    }
-                , Input.button [ centerX, centerY ]
-                    { onPress = Just ShowLevelSelect
-                    , label = text "Level Select"
+                    { onPress = Just ReturnToMainMenu
+                    , label = text "Main Menu"
                     }
                 ]
-
-
-levelSelectButton : Int -> Puzzle -> Element Msg
-levelSelectButton index puzzle =
-    column [ padding 20, centerX, Events.onClick (SelectLevel index) ]
-        [ el [ centerX ] (text <| String.fromInt <| index + 1)
-        , el [ centerX ] (text puzzle.name)
-        ]
 
 
 gameBoardRow : Int -> List CellState -> Element Msg
