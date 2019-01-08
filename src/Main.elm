@@ -112,7 +112,7 @@ update msg model =
             ( { model | board = clearedBoard }, Cmd.none )
 
         KeyDown key ->
-            case Debug.log "key" key of
+            case key of
                 "Shift" ->
                     ( { model | shiftPressed = True }, Cmd.none )
 
