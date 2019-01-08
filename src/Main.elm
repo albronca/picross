@@ -316,10 +316,37 @@ keyDecoder msgConstructor =
 -- VIEW
 
 
+type alias FocusStyle =
+    { borderColor : Maybe Color
+    , backgroundColor : Maybe Color
+    , shadow :
+        Maybe
+            { color : Color
+            , offset : ( Int, Int )
+            , blur : Int
+            , size : Int
+            }
+    }
+
+
 view : Model -> Html Msg
 view model =
     gameView model
-        |> layout
+        |> layoutWith
+            { options =
+                [ focusStyle
+                    { borderColor = Nothing
+                    , backgroundColor = Nothing
+                    , shadow =
+                        Just
+                            { color = dimGreen
+                            , offset = ( 0, 0 )
+                            , blur = 10
+                            , size = 2
+                            }
+                    }
+                ]
+            }
             [ Background.color darkGray
             , Font.color brightGreen
             , Font.family
@@ -380,34 +407,76 @@ statusMessage model =
 menu : Model -> Element Msg
 menu model =
     column
-        [ Font.size 16
+        [ Font.size 12
         , spacing 20
         , width <| px 200
         , height <| px 500
         , centerY
         ]
         [ el [ centerX, alignTop, Font.size 20 ] (text "picross")
-        , el [ centerX, centerY ]
-            (Input.radio
-                [ spacing 10, padding 20 ]
-                { onChange = SelectPuzzleSize
-                , selected = Just model.puzzleSize
-                , label = Input.labelAbove [ centerX ] (text "select puzzle size")
-                , options =
-                    [ puzzleOption Puzzle.Small
-                    , puzzleOption Puzzle.Medium
-                    , puzzleOption Puzzle.Large
+        , column [ centerX, centerY, Border.width 1, Border.rounded 5 ]
+            [ el [ padding 10 ]
+                (Input.radio
+                    [ spacing 10
+                    , paddingEach
+                        { top = 10
+                        , right = 0
+                        , bottom = 0
+                        , left = 0
+                        }
                     ]
-                }
-            )
-        , Input.button [ centerX ]
-            { onPress = Just ClearBoard
-            , label = text "Clear Board"
-            }
-        , Input.button [ centerX ]
-            { onPress = Just GenerateRandomGame
-            , label = text "Start"
-            }
+                    { onChange = SelectPuzzleSize
+                    , selected = Just model.puzzleSize
+                    , label = Input.labelAbove [ centerX, Font.size 16 ] (text "select puzzle size")
+                    , options =
+                        [ puzzleOption Puzzle.Small
+                        , puzzleOption Puzzle.Medium
+                        , puzzleOption Puzzle.Large
+                        ]
+                    }
+                )
+            , row
+                [ width fill
+                , Border.widthEach
+                    { bottom = 0
+                    , left = 0
+                    , right = 0
+                    , top = 1
+                    }
+                ]
+                [ Input.button [ width fill, Font.center, padding 10 ]
+                    { onPress = Just ClearBoard
+                    , label = text "Clear Board"
+                    }
+                , Input.button
+                    [ width fill
+                    , Font.center
+                    , padding 10
+                    , Border.widthEach
+                        { bottom = 0
+                        , left = 1
+                        , right = 0
+                        , top = 0
+                        }
+                    ]
+                    { onPress = Just GenerateRandomGame
+                    , label = text "Start"
+                    }
+                ]
+            ]
+        , column
+            [ centerX
+            , centerY
+            , spacing 10
+            , Font.size 12
+            , Border.width 1
+            , Border.rounded 5
+            , padding 20
+            ]
+            [ el [ centerX, Font.size 16 ] (text "how to play")
+            , el [ centerX ] (text "click to fill")
+            , el [ centerX ] (text "shift + click to flag")
+            ]
         ]
 
 
@@ -433,10 +502,7 @@ puzzleOption puzzleSize =
                         Input.Idle ->
                             [ Border.color darkGray ]
 
-                        Input.Focused ->
-                            [ Border.color brightGreen ]
-
-                        Input.Selected ->
+                        _ ->
                             [ Border.color brightGreen ]
             in
             el
