@@ -56,8 +56,7 @@ type alias WindowSize =
 
 
 type GameState
-    = MainMenu
-    | Paused
+    = Setup
     | Playing
     | Won
 
@@ -76,7 +75,7 @@ initialModel windowSize =
     , columnHints = []
     , puzzleSize = Puzzle.Small
     , shiftPressed = False
-    , gameState = MainMenu
+    , gameState = Setup
     , windowSize = windowSize
     }
 
@@ -96,7 +95,6 @@ type Msg
     | KeyUp String
     | GenerateRandomGame
     | ResumeGame
-    | ReturnToMainMenu
     | SelectPuzzleSize Puzzle.PuzzleSize
     | SolutionGenerated (Matrix Bool)
     | ToggleCell Int Int
@@ -118,17 +116,6 @@ update msg model =
                 "Shift" ->
                     ( { model | shiftPressed = True }, Cmd.none )
 
-                "Enter" ->
-                    let
-                        newGameState =
-                            if model.gameState == Playing then
-                                Paused
-
-                            else
-                                Playing
-                    in
-                    ( { model | gameState = newGameState }, Cmd.none )
-
                 _ ->
                     ( model, Cmd.none )
 
@@ -147,9 +134,6 @@ update msg model =
 
         ResumeGame ->
             ( { model | gameState = Playing }, Cmd.none )
-
-        ReturnToMainMenu ->
-            ( { model | gameState = MainMenu }, Cmd.none )
 
         SelectPuzzleSize puzzleSize ->
             ( { model | puzzleSize = puzzleSize }, Cmd.none )
@@ -173,26 +157,31 @@ update msg model =
             )
 
         ToggleCell x y ->
-            let
-                toggleFunction =
-                    if model.shiftPressed then
-                        flagCell
+            case model.gameState of
+                Playing ->
+                    let
+                        toggleFunction =
+                            if model.shiftPressed then
+                                flagCell
 
-                    else
-                        fillCell
+                            else
+                                fillCell
 
-                newBoard =
-                    toggleFunction ( x, y ) model.board
+                        newBoard =
+                            toggleFunction ( x, y ) model.board
 
-                newGameState =
-                    getGameState { model | board = newBoard }
-            in
-            ( { model
-                | board = newBoard
-                , gameState = newGameState
-              }
-            , Cmd.none
-            )
+                        newGameState =
+                            getGameState { model | board = newBoard }
+                    in
+                    ( { model
+                        | board = newBoard
+                        , gameState = newGameState
+                      }
+                    , Cmd.none
+                    )
+
+                _ ->
+                    ( model, Cmd.none )
 
         WindowResize width height ->
             ( { model | windowSize = { width = width, height = height } }, Cmd.none )
@@ -312,14 +301,10 @@ toggleCell ( toggleX, toggleY ) =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    if model.gameState == Playing || model.gameState == Paused then
-        Sub.batch
-            [ onKeyDown <| keyDecoder KeyDown
-            , onKeyUp <| keyDecoder KeyUp
-            ]
-
-    else
-        Sub.none
+    Sub.batch
+        [ onKeyDown <| keyDecoder KeyDown
+        , onKeyUp <| keyDecoder KeyUp
+        ]
 
 
 keyDecoder : (String -> Msg) -> Decoder Msg
@@ -333,103 +318,137 @@ keyDecoder msgConstructor =
 
 view : Model -> Html Msg
 view model =
-    layout [] <|
-        gameView model
+    gameView model
+        |> layout
+            [ Background.color darkGray
+            , Font.color brightGreen
+            , Font.family
+                [ Font.typeface "Courier"
+                , Font.monospace
+                ]
+            , Font.size 12
+            ]
 
 
 gameView : Model -> Element Msg
 gameView model =
-    model.board
-        |> Matrix.rows
-        |> List.map Array.toList
-        |> List.indexedMap gameBoardRow
-        |> column
-            [ centerX
-            , centerY
-            , width <| px 500
-            , height <| px 500
-            , Font.size 12
-            , onLeft <| rowHints model.rowHints
-            , above <| columnHints model.columnHints
-            , inFront <|
-                menu model
+    row [ width <| px 800, height fill, centerX, onRight <| statusMessage model ] [ menu model, gameBoard model ]
+
+
+gameBoard : Model -> Element Msg
+gameBoard model =
+    row [ centerX ]
+        [ rowHints model.rowHints
+        , column []
+            [ columnHints model.columnHints
+            , column
+                [ centerX
+                , centerY
+                , width <| px 450
+                , height <| px 450
+                , Border.rounded 5
+                , clip
+                ]
+                (model.board
+                    |> Matrix.rows
+                    |> List.map Array.toList
+                    |> List.indexedMap gameBoardRow
+                )
             ]
+        ]
+
+
+statusMessage : Model -> Element Msg
+statusMessage model =
+    case model.gameState of
+        Won ->
+            column [ centerY ]
+                [ text "お"
+                , text "め"
+                , text "で"
+                , text "と"
+                , text "う"
+                , text "！"
+                ]
+                |> el
+                    [ height fill, Font.size 20 ]
+
+        _ ->
+            none
 
 
 menu : Model -> Element Msg
 menu model =
-    case model.gameState of
-        Playing ->
-            none
-
-        Paused ->
-            column
-                [ centerX
-                , centerY
-                , width <| px 500
-                , height <| px 500
-                , Background.color (rgba 255 255 255 0.8)
-                , Font.size 24
-                ]
-                [ el [ centerX, centerY ] (text "PAUSED")
-                , Input.button [ centerX, centerY ]
-                    { onPress = Just ResumeGame
-                    , label = text "Resume Game"
-                    }
-                , Input.button [ centerX, centerY ]
-                    { onPress = Just ClearBoard
-                    , label = text "Clear Board"
-                    }
-                , Input.button [ centerX, centerY ]
-                    { onPress = Just ReturnToMainMenu
-                    , label = text "Main Menu"
-                    }
-                ]
-
-        MainMenu ->
-            column
-                [ centerX
-                , centerY
-                , width <| px 500
-                , height <| px 500
-                , Background.color (rgba 255 255 255 0.8)
-                , Font.size 24
-                ]
-                [ el [ centerX, centerY ] (text "picross")
-                , Input.radio
-                    [ padding 10
-                    , spacing 20
+    column
+        [ Font.size 16
+        , spacing 20
+        , width <| px 200
+        , height <| px 500
+        , centerY
+        ]
+        [ el [ centerX, alignTop, Font.size 20 ] (text "picross")
+        , el [ centerX, centerY ]
+            (Input.radio
+                [ spacing 10, padding 20 ]
+                { onChange = SelectPuzzleSize
+                , selected = Just model.puzzleSize
+                , label = Input.labelAbove [ centerX ] (text "select puzzle size")
+                , options =
+                    [ puzzleOption Puzzle.Small
+                    , puzzleOption Puzzle.Medium
+                    , puzzleOption Puzzle.Large
                     ]
-                    { onChange = SelectPuzzleSize
-                    , selected = Just model.puzzleSize
-                    , label = Input.labelAbove [] (text "Puzzle Size")
-                    , options =
-                        [ Input.option Puzzle.Small (text "5x5")
-                        , Input.option Puzzle.Medium (text "10x10")
-                        , Input.option Puzzle.Large (text "15x15")
-                        ]
-                    }
-                , Input.button [ centerX, centerY ]
-                    { onPress = Just GenerateRandomGame
-                    , label = text "Start"
-                    }
-                ]
+                }
+            )
+        , Input.button [ centerX ]
+            { onPress = Just ClearBoard
+            , label = text "Clear Board"
+            }
+        , Input.button [ centerX ]
+            { onPress = Just GenerateRandomGame
+            , label = text "Start"
+            }
+        ]
 
-        Won ->
-            column
-                [ centerX
-                , centerY
-                , width <| px 500
-                , height <| px 500
-                , Background.color (rgba 255 255 255 0.8)
-                , Font.size 24
-                ]
-                [ el [ centerX, centerY ] (text "wow good job")
-                , Input.button [ centerX, centerY ]
-                    { onPress = Just ReturnToMainMenu
-                    , label = text "Main Menu"
-                    }
-                ]
+
+puzzleOption : Puzzle.PuzzleSize -> Input.Option Puzzle.PuzzleSize Msg
+puzzleOption puzzleSize =
+    let
+        label =
+            case puzzleSize of
+                Puzzle.Small ->
+                    "5x5"
+
+                Puzzle.Medium ->
+                    "10x10"
+
+                Puzzle.Large ->
+                    "15x15"
+    in
+    Input.optionWith puzzleSize
+        (\state ->
+            let
+                stateStyle =
+                    case state of
+                        Input.Idle ->
+                            [ Border.color darkGray ]
+
+                        Input.Focused ->
+                            [ Border.color brightGreen ]
+
+                        Input.Selected ->
+                            [ Border.color brightGreen ]
+            in
+            el
+                (stateStyle
+                    ++ [ Border.width 1
+                       , centerX
+                       , padding 10
+                       , Border.rounded 5
+                       ]
+                )
+                (text label)
+        )
 
 
 gameBoardRow : Int -> List CellState -> Element Msg
@@ -444,10 +463,17 @@ gameBoardRow y =
 
         borderColor =
             if modBy 5 y == 0 then
-                rgb255 0 0 0
+                blue
 
             else
-                rgb255 255 255 255
+                darkGray
+
+        borderStyle =
+            if modBy 5 y == 0 then
+                Border.dotted
+
+            else
+                Border.solid
     in
     List.indexedMap (gameBoardCell y)
         >> row
@@ -461,6 +487,7 @@ gameBoardRow y =
                 , right = 0
                 , top = topBorderWidth
                 }
+            , borderStyle
             ]
 
 
@@ -476,10 +503,17 @@ gameBoardCell y x cellState =
 
         borderColor =
             if modBy 5 x == 0 then
-                rgb255 0 0 0
+                blue
 
             else
-                rgb255 255 255 255
+                darkGray
+
+        borderStyle =
+            if modBy 5 x == 0 then
+                Border.dotted
+
+            else
+                Border.solid
     in
     el
         [ Background.color <| cellColor cellState
@@ -493,6 +527,7 @@ gameBoardCell y x cellState =
             , right = 0
             , top = 0
             }
+        , borderStyle
         ]
         none
 
@@ -501,10 +536,10 @@ cellColor : CellState -> Color
 cellColor cellState =
     case cellState of
         Empty ->
-            rgb255 200 200 200
+            dimGreen
 
         Filled ->
-            rgb255 0 0 0
+            brightGreen
 
         Flagged ->
             rgb255 255 0 0
@@ -515,8 +550,8 @@ rowHints hints =
     hints
         |> List.map (List.map hintElement)
         |> List.map (List.map <| el [ alignRight ])
-        |> List.map (row [ height fill, spacing 8 ])
-        |> column [ height <| px 500, spacing 4, paddingXY 20 0 ]
+        |> List.map (row [ height fill, spacing 8, alignRight ])
+        |> column [ height <| px 450, spacing 4, paddingXY 10 0, alignBottom ]
 
 
 columnHints : List (List Hint) -> Element Msg
@@ -524,8 +559,8 @@ columnHints hints =
     hints
         |> List.map (List.map hintElement)
         |> List.map (List.map <| el [ centerX ])
-        |> List.map (column [ width fill, spacing 8 ])
-        |> row [ width <| px 500, spacing 4, centerX, paddingXY 0 20 ]
+        |> List.map (column [ width fill, spacing 8, alignBottom ])
+        |> row [ width <| px 450, spacing 4, centerX, paddingXY 0 10 ]
 
 
 hintElement : Hint -> Element Msg
@@ -533,11 +568,40 @@ hintElement hint =
     let
         color =
             if hint.used then
-                rgb255 100 100 100
+                dimGreen
 
             else
-                rgb255 0 0 0
+                brightGreen
     in
     String.fromInt hint.groupSize
         |> text
         |> el [ Font.color color ]
+
+
+
+-- COLORS
+
+
+darkGray : Color
+darkGray =
+    rgb255 38 38 38
+
+
+lightGray : Color
+lightGray =
+    rgb255 188 188 188
+
+
+brightGreen : Color
+brightGreen =
+    rgba255 181 189 104 1
+
+
+dimGreen : Color
+dimGreen =
+    rgba255 181 189 104 0.1
+
+
+blue : Color
+blue =
+    rgba255 129 162 178 0.5
