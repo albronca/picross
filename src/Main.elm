@@ -36,6 +36,7 @@ type alias Model =
     , solution : Matrix Bool
     , rowHints : List (List Hint)
     , columnHints : List (List Hint)
+    , currentHoveredCell : Maybe ( Int, Int )
     , puzzleSize : Puzzle.PuzzleSize
     , fPressed : Bool
     , gameState : GameState
@@ -70,6 +71,7 @@ type CellState
 initialModel : WindowSize -> Model
 initialModel windowSize =
     { board = Matrix.repeat 5 5 Empty
+    , currentHoveredCell = Nothing
     , solution = Matrix.repeat 5 5 False
     , rowHints = []
     , columnHints = []
@@ -94,10 +96,12 @@ type Msg
     | KeyDown String
     | KeyUp String
     | GenerateRandomGame
+    | MouseEnterCell ( Int, Int )
+    | MouseLeaveBoard
     | ResumeGame
     | SelectPuzzleSize Puzzle.PuzzleSize
     | SolutionGenerated (Matrix Bool)
-    | ToggleCell Int Int
+    | ToggleCell
     | WindowResize Int Int
 
 
@@ -126,6 +130,12 @@ update msg model =
 
                 _ ->
                     ( model, Cmd.none )
+
+        MouseEnterCell pos ->
+            ( { model | currentHoveredCell = Just pos }, Cmd.none )
+
+        MouseLeaveBoard ->
+            ( { model | currentHoveredCell = Nothing }, Cmd.none )
 
         GenerateRandomGame ->
             ( model
@@ -156,9 +166,9 @@ update msg model =
             , Cmd.none
             )
 
-        ToggleCell x y ->
-            case model.gameState of
-                Playing ->
+        ToggleCell ->
+            case ( model.gameState, model.currentHoveredCell ) of
+                ( Playing, Just ( x, y ) ) ->
                     let
                         toggleFunction =
                             if model.fPressed then
@@ -277,24 +287,6 @@ flagCell ( toggleX, toggleY ) =
         )
 
 
-toggleCells : List ( Int, Int ) -> Matrix Bool -> Matrix Bool
-toggleCells coordList board =
-    coordList
-        |> List.foldl toggleCell board
-
-
-toggleCell : ( Int, Int ) -> Matrix Bool -> Matrix Bool
-toggleCell ( toggleX, toggleY ) =
-    Matrix.indexedMap
-        (\cellX cellY isOn ->
-            if cellX == toggleX && cellY == toggleY then
-                not isOn
-
-            else
-                isOn
-        )
-
-
 
 -- SUBSCRIPTIONS
 
@@ -375,6 +367,7 @@ gameBoard model =
                 , height <| px 450
                 , Border.rounded 5
                 , clip
+                , Events.onMouseLeave MouseLeaveBoard
                 ]
                 (model.board
                     |> Matrix.rows
@@ -585,7 +578,8 @@ gameBoardCell y x cellState =
         [ Background.color dimGreen
         , width fill
         , height fill
-        , Events.onClick <| ToggleCell x y
+        , Events.onClick <| ToggleCell
+        , Events.onMouseEnter <| MouseEnterCell ( x, y )
         , Border.color borderColor
         , Border.widthEach
             { bottom = 0
@@ -595,8 +589,6 @@ gameBoardCell y x cellState =
             }
         , borderStyle
         , padding 5
-
-        -- , explain Debug.todo
         ]
         (cellContents cellState)
 
