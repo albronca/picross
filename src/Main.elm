@@ -2,7 +2,7 @@ module Main exposing (main)
 
 import Array exposing (Array)
 import Browser
-import Browser.Events exposing (onKeyDown, onKeyUp, onResize)
+import Browser.Events
 import Element exposing (..)
 import Element.Background as Background
 import Element.Border as Border
@@ -39,6 +39,7 @@ type alias Model =
     , currentHoveredCell : Maybe ( Int, Int )
     , puzzleSize : Puzzle.PuzzleSize
     , fPressed : Bool
+    , mouseDown : Bool
     , gameState : GameState
     , windowSize : WindowSize
     }
@@ -77,6 +78,7 @@ initialModel windowSize =
     , columnHints = []
     , puzzleSize = Puzzle.Small
     , fPressed = False
+    , mouseDown = False
     , gameState = Setup
     , windowSize = windowSize
     }
@@ -96,12 +98,13 @@ type Msg
     | KeyDown String
     | KeyUp String
     | GenerateRandomGame
+    | MouseDown
+    | MouseUp
     | MouseEnterCell ( Int, Int )
     | MouseLeaveBoard
     | ResumeGame
     | SelectPuzzleSize Puzzle.PuzzleSize
     | SolutionGenerated (Matrix Bool)
-    | ToggleCell
     | WindowResize Int Int
 
 
@@ -132,7 +135,35 @@ update msg model =
                     ( model, Cmd.none )
 
         MouseEnterCell pos ->
-            ( { model | currentHoveredCell = Just pos }, Cmd.none )
+            case ( model.gameState, model.mouseDown ) of
+                ( Playing, True ) ->
+                    let
+                        test =
+                            Debug.log "test" pos
+
+                        toggleFunction =
+                            if model.fPressed then
+                                flagCell
+
+                            else
+                                fillCell
+
+                        newBoard =
+                            toggleFunction pos model.board
+
+                        newGameState =
+                            getGameState { model | board = newBoard }
+                    in
+                    ( { model
+                        | board = newBoard
+                        , currentHoveredCell = Just pos
+                        , gameState = newGameState
+                      }
+                    , Cmd.none
+                    )
+
+                _ ->
+                    ( { model | currentHoveredCell = Just pos }, Cmd.none )
 
         MouseLeaveBoard ->
             ( { model | currentHoveredCell = Nothing }, Cmd.none )
@@ -162,11 +193,13 @@ update msg model =
                 , rowHints = getRowHints solution
                 , columnHints = getColumnHints solution
                 , gameState = Playing
+                , fPressed = False
+                , mouseDown = False
               }
             , Cmd.none
             )
 
-        ToggleCell ->
+        MouseDown ->
             case ( model.gameState, model.currentHoveredCell ) of
                 ( Playing, Just ( x, y ) ) ->
                     let
@@ -185,13 +218,17 @@ update msg model =
                     in
                     ( { model
                         | board = newBoard
+                        , mouseDown = True
                         , gameState = newGameState
                       }
                     , Cmd.none
                     )
 
                 _ ->
-                    ( model, Cmd.none )
+                    ( { model | mouseDown = True }, Cmd.none )
+
+        MouseUp ->
+            ( { model | mouseDown = False }, Cmd.none )
 
         WindowResize width height ->
             ( { model | windowSize = { width = width, height = height } }, Cmd.none )
@@ -293,10 +330,17 @@ flagCell ( toggleX, toggleY ) =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    Sub.batch
-        [ onKeyDown <| keyDecoder KeyDown
-        , onKeyUp <| keyDecoder KeyUp
-        ]
+    case model.gameState of
+        Playing ->
+            Sub.batch
+                [ Browser.Events.onKeyDown <| keyDecoder KeyDown
+                , Browser.Events.onKeyUp <| keyDecoder KeyUp
+                , Browser.Events.onMouseDown <| Decode.succeed MouseDown
+                , Browser.Events.onMouseUp <| Decode.succeed MouseUp
+                ]
+
+        _ ->
+            Sub.none
 
 
 keyDecoder : (String -> Msg) -> Decoder Msg
@@ -306,19 +350,6 @@ keyDecoder msgConstructor =
 
 
 -- VIEW
-
-
-type alias FocusStyle =
-    { borderColor : Maybe Color
-    , backgroundColor : Maybe Color
-    , shadow :
-        Maybe
-            { color : Color
-            , offset : ( Int, Int )
-            , blur : Int
-            , size : Int
-            }
-    }
 
 
 view : Model -> Html Msg
@@ -578,7 +609,6 @@ gameBoardCell y x cellState =
         [ Background.color dimGreen
         , width fill
         , height fill
-        , Events.onClick <| ToggleCell
         , Events.onMouseEnter <| MouseEnterCell ( x, y )
         , Border.color borderColor
         , Border.widthEach
