@@ -138,9 +138,6 @@ update msg model =
             case ( model.gameState, model.mouseDown ) of
                 ( Playing, True ) ->
                     let
-                        test =
-                            Debug.log "test" pos
-
                         toggleFunction =
                             if model.fPressed then
                                 flagCell
@@ -403,7 +400,7 @@ gameBoard model =
                 (model.board
                     |> Matrix.rows
                     |> List.map Array.toList
-                    |> List.indexedMap gameBoardRow
+                    |> List.indexedMap (gameBoardRow model.currentHoveredCell)
                 )
             ]
         ]
@@ -541,8 +538,8 @@ puzzleOption puzzleSize =
         )
 
 
-gameBoardRow : Int -> List CellState -> Element Msg
-gameBoardRow y =
+gameBoardRow : Maybe ( Int, Int ) -> Int -> List CellState -> Element Msg
+gameBoardRow currentHoveredCell y =
     let
         topBorderWidth =
             if y > 0 then
@@ -565,7 +562,7 @@ gameBoardRow y =
             else
                 Border.solid
     in
-    List.indexedMap (gameBoardCell y)
+    List.indexedMap (gameBoardCell currentHoveredCell y)
         >> row
             [ width fill
             , height fill
@@ -581,8 +578,8 @@ gameBoardRow y =
             ]
 
 
-gameBoardCell : Int -> Int -> CellState -> Element Msg
-gameBoardCell y x cellState =
+gameBoardCell : Maybe ( Int, Int ) -> Int -> Int -> CellState -> Element Msg
+gameBoardCell currentHoveredCell y x cellState =
     let
         leftBorderWidth =
             if x > 0 then
@@ -604,9 +601,21 @@ gameBoardCell y x cellState =
 
             else
                 Border.solid
+
+        backgroundColor =
+            case currentHoveredCell of
+                Just ( hoverX, hoverY ) ->
+                    if x == hoverX || y == hoverY then
+                        green
+
+                    else
+                        dimGreen
+
+                Nothing ->
+                    dimGreen
     in
     el
-        [ Background.color dimGreen
+        [ Background.color backgroundColor
         , width fill
         , height fill
         , Events.onMouseEnter <| MouseEnterCell ( x, y )
@@ -717,6 +726,11 @@ lightGray =
 brightGreen : Color
 brightGreen =
     rgba255 181 189 104 1
+
+
+green : Color
+green =
+    rgba255 181 189 104 0.3
 
 
 dimGreen : Color
