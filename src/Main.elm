@@ -37,7 +37,7 @@ type alias Model =
     , rowHints : List (List Hint)
     , columnHints : List (List Hint)
     , puzzleSize : Puzzle.PuzzleSize
-    , shiftPressed : Bool
+    , fPressed : Bool
     , gameState : GameState
     , windowSize : WindowSize
     }
@@ -74,7 +74,7 @@ initialModel windowSize =
     , rowHints = []
     , columnHints = []
     , puzzleSize = Puzzle.Small
-    , shiftPressed = False
+    , fPressed = False
     , gameState = Setup
     , windowSize = windowSize
     }
@@ -113,16 +113,16 @@ update msg model =
 
         KeyDown key ->
             case key of
-                "Shift" ->
-                    ( { model | shiftPressed = True }, Cmd.none )
+                "f" ->
+                    ( { model | fPressed = True }, Cmd.none )
 
                 _ ->
                     ( model, Cmd.none )
 
         KeyUp key ->
             case key of
-                "Shift" ->
-                    ( { model | shiftPressed = False }, Cmd.none )
+                "f" ->
+                    ( { model | fPressed = False }, Cmd.none )
 
                 _ ->
                     ( model, Cmd.none )
@@ -161,7 +161,7 @@ update msg model =
                 Playing ->
                     let
                         toggleFunction =
-                            if model.shiftPressed then
+                            if model.fPressed then
                                 flagCell
 
                             else
@@ -475,7 +475,7 @@ menu model =
             ]
             [ el [ centerX, Font.size 16 ] (text "how to play")
             , el [ centerX ] (text "click to fill")
-            , el [ centerX ] (text "shift + click to flag")
+            , el [ centerX ] (text "f + click to flag")
             ]
         ]
 
@@ -582,7 +582,7 @@ gameBoardCell y x cellState =
                 Border.solid
     in
     el
-        [ Background.color <| cellColor cellState
+        [ Background.color dimGreen
         , width fill
         , height fill
         , Events.onClick <| ToggleCell x y
@@ -594,21 +594,55 @@ gameBoardCell y x cellState =
             , top = 0
             }
         , borderStyle
+        , padding 5
+
+        -- , explain Debug.todo
         ]
-        none
+        (cellContents cellState)
 
 
-cellColor : CellState -> Color
-cellColor cellState =
-    case cellState of
-        Empty ->
-            dimGreen
+cellContents : CellState -> Element Msg
+cellContents cellState =
+    let
+        style =
+            case cellState of
+                Empty ->
+                    []
 
-        Filled ->
-            brightGreen
+                Filled ->
+                    [ width fill
+                    , height fill
+                    , Background.color brightGreen
+                    , Border.rounded 5
+                    ]
 
-        Flagged ->
-            rgb255 255 0 0
+                Flagged ->
+                    [ width fill
+                    , height fill
+                    , centerY
+                    , inFront <|
+                        el
+                            [ width fill
+                            , height <| px 3
+                            , rotate <| degrees 45
+                            , centerY
+                            , Background.color red
+                            , Border.rounded 5
+                            ]
+                            none
+                    , inFront <|
+                        el
+                            [ width fill
+                            , height <| px 3
+                            , rotate <| degrees -45
+                            , centerY
+                            , Background.color red
+                            , Border.rounded 5
+                            ]
+                            none
+                    ]
+    in
+    el style none
 
 
 rowHints : List (List Hint) -> Element Msg
@@ -671,3 +705,8 @@ dimGreen =
 blue : Color
 blue =
     rgba255 129 162 178 0.5
+
+
+red : Color
+red =
+    rgb255 204 36 29
